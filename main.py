@@ -6,14 +6,16 @@ from player import Player
 from monster import Monster
 from level import Level
 from ui import UI
+from arrow import Arrow
+from platform import Platform
 
 pygame.init()
 
 # Screen settings
-SCREEN_WIDTH = 1000
-SCREEN_HEIGHT = 700
+SCREEN_WIDTH = 1200
+SCREEN_HEIGHT = 800
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Shadow Shifter")
+pygame.display.set_caption("Shadow Shifter - Platformer")
 clock = pygame.time.Clock()
 fps = 60
 
@@ -25,57 +27,65 @@ GREEN = (0, 200, 0)
 RED = (200, 0, 0)
 BLUE = (0, 100, 200)
 PURPLE = (150, 0, 150)
+GRAY = (100, 100, 100)
 
 class GameState(Enum):
     PLAYING = 1
-    PAUSED = 2
-    LEVEL_COMPLETE = 3
-    GAME_OVER = 4
+    LEVEL_COMPLETE = 2
+    GAME_OVER = 3
 
 class Game:
     def __init__(self):
         self.state = GameState.PLAYING
-        self.player = Player(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+        self.player = Player(100, SCREEN_HEIGHT - 150)
         self.level = Level(1)
-        self.monsters = self.level.spawn_monsters()
+        self.platforms = self.level.create_platforms(SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.monsters = self.level.spawn_monsters(SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.arrows = []
         self.ui = UI()
-        self.wave = 1
+        self.level_num = 1
         self.score = 0
+        self.gravity = 0.6
         self.enemies_defeated = 0
         
     def handle_input(self):
         keys = pygame.key.get_pressed()
         
         # Movement
-        if keys[pygame.K_w]:
-            self.player.move(0, -5)
-        if keys[pygame.K_s]:
-            self.player.move(0, 5)
         if keys[pygame.K_a]:
-            self.player.move(-5, 0)
+            self.player.move(-6, 0, self.platforms)
         if keys[pygame.K_d]:
-            self.player.move(5, 0)
+            self.player.move(6, 0, self.platforms)
         
-        # Shift form (E key)
+        # Jump
+        if keys[pygame.K_w] and self.player.on_ground:
+            self.player.jump()
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
             if event.type == pygame.KEYDOWN:
+                # Shift form (E key)
                 if event.key == pygame.K_e:
                     self.player.toggle_form()
-                if event.key == pygame.K_SPACE and self.player.form == "warrior":
-                    # Attack
-                    self.player.attack(self.monsters)
+                # Shoot arrow (Space or mouse click)
+                if event.key == pygame.K_SPACE:
+                    self.shoot_arrow()
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if self.player.form == "warrior":
-                    self.player.attack(self.monsters)
+                self.shoot_arrow()
         
         return True
     
+    def shoot_arrow(self):
+        """Shoot an arrow from player position"""
+        if self.player.form == "warrior":
+            arrow = self.player.shoot_arrow()
+            if arrow:
+                self.arrows.append(arrow)
+    
     def update(self):
-        # Keep player in bounds
-        self.player.x = max(20, min(self.player.x, SCREEN_WIDTH - 20))
-        self.player.y = max(20, min(self.player.y, SCREEN_HEIGHT - 20))
+        # Apply gravity
+        self.player.apply_gravity(self.gravity, self.platforms, SCREEN_HEIGHT)
         
         # Update monsters
         for monster in self.monsters[:]:
@@ -84,31 +94,57 @@ class Game:
                 self.score += monster.reward
                 self.enemies_defeated += 1
             else:
-                monster.update(self.player)
-                # Check collision with player (damage)
-                if self.player.form == "warrior" and self.player.distance_to(monster) < 30:
-                    self.player.take_damage(0.5)  # Per frame damage
+                monster.update(self.platforms, SCREEN_HEIGHT)
+        
+        # Update arrows
+        for arrow in self.arrows[:]:
+            arrow.update()
+            
+            # Check collision with monsters
+            hit = False
+            for monster in self.monsters:
+                if arrow.collides_with(monster):
+                    monster.take_damage(arrow.damage)
+                    hit = True
+                    break
+            
+            # Remove arrow if off screen or hit
+            if arrow.x < 0 or arrow.x > SCREEN_WIDTH or arrow.y < 0 or arrow.y > SCREEN_HEIGHT or hit:
+                if arrow in self.arrows:
+                    self.arrows.remove(arrow)
         
         # Check win condition
         if len(self.monsters) == 0:
             self.state = GameState.LEVEL_COMPLETE
+        
+        # Check lose condition
+        if self.player.health <= 0:
+            self.state = GameState.GAME_OVER
     
     def draw(self):
-        screen.fill(DARK_GRAY)
-        
-        # Draw walls (dungeon layout)
+        # Background
         if self.player.form == "shadow":
-            screen.fill((10, 10, 20))  # Darker background in shadow form
+            screen.fill((10, 10, 20))  # Dark background in shadow form
+        else:
+            screen.fill((20, 20, 40))  # Dark blue dungeon
+        
+        # Draw platforms
+        for platform in self.platforms:
+            platform.draw(screen)
         
         # Draw player
         self.player.draw(screen)
+        
+        # Draw arrows
+        for arrow in self.arrows:
+            arrow.draw(screen)
         
         # Draw monsters
         for monster in self.monsters:
             monster.draw(screen)
         
         # Draw UI
-        self.ui.draw(screen, self.player, self.score, self.wave, len(self.monsters))
+        self.ui.draw(screen, self.player, self.score, self.level_num, len(self.monsters))
         
         pygame.display.flip()
     
@@ -120,7 +156,11 @@ class Game:
             if self.state == GameState.PLAYING:
                 self.update()
             elif self.state == GameState.LEVEL_COMPLETE:
-                self.level_complete_screen()
+                if not self.level_complete_screen():
+                    running = False
+            elif self.state == GameState.GAME_OVER:
+                if not self.game_over_screen():
+                    running = False
             
             self.draw()
             clock.tick(fps)
@@ -130,17 +170,45 @@ class Game:
     
     def level_complete_screen(self):
         font = pygame.font.Font(None, 48)
-        text = font.render(f"Level {self.wave} Complete!", True, GREEN)
-        screen.blit(text, (SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 - 50))
+        text = font.render(f"Level {self.level_num} Complete!", True, GREEN)
+        screen.blit(text, (SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 100))
+        
+        font_small = pygame.font.Font(None, 32)
+        text2 = font_small.render("Press SPACE to continue...", True, WHITE)
+        screen.blit(text2, (SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2))
+        
+        pygame.display.flip()
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
             if event.type == pygame.KEYDOWN:
-                self.wave += 1
-                self.level = Level(self.wave)
-                self.monsters = self.level.spawn_monsters()
+                self.level_num += 1
+                self.level = Level(self.level_num)
+                self.platforms = self.level.create_platforms(SCREEN_WIDTH, SCREEN_HEIGHT)
+                self.monsters = self.level.spawn_monsters(SCREEN_WIDTH, SCREEN_HEIGHT)
+                self.player = Player(100, SCREEN_HEIGHT - 150)
+                self.arrows = []
                 self.state = GameState.PLAYING
+                return True
+        return True
+    
+    def game_over_screen(self):
+        font = pygame.font.Font(None, 48)
+        text = font.render("GAME OVER", True, RED)
+        screen.blit(text, (SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 - 50))
+        
+        font_small = pygame.font.Font(None, 32)
+        text2 = font_small.render(f"Final Score: {self.score}", True, WHITE)
+        screen.blit(text2, (SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 + 20))
+        
+        pygame.display.flip()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+            if event.type == pygame.KEYDOWN:
+                return False
         return True
 
 if __name__ == "__main__":

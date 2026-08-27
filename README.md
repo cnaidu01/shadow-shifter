@@ -1,28 +1,31 @@
-# Shadow Shifter 🎮⚔️
+# Shadow Shifter - Platformer 🎮⚔️
 
-A dungeon crawler game where you shift between a **Warrior** and **Shadow** form to fight monsters, progress through levels, and unlock new characters!
+A dungeon platformer game where you shift between a **Warrior** and **Shadow** form to fight monsters, navigate platforms, and progress through levels!
 
 ## Game Features
 
 ✨ **Core Mechanics:**
-- **Warrior Form** - Fight monsters, take damage
-- **Shadow Form** - Move through walls, no collision damage
+- **Warrior Form** - Shoot arrows at monsters from a distance
+- **Shadow Form** - Phase through walls and obstacles
+- **Platforming** - Jump between platforms to reach monsters
 - **Toggle Form** - Press E to switch between forms
 
 🎮 **Controls:**
-- **WASD** - Move your character
-- **E** - Toggle between Warrior and Shadow form
-- **Mouse Click / Space** - Attack (Warrior only)
+- **A / D** - Move left / right
+- **W** - Jump
+- **E** - Toggle Warrior ↔ Shadow form
+- **SPACE / CLICK** - Shoot arrows (Warrior only)
 
-👹 **Monsters:**
-- Goblins (fast, weak)
-- Orcs (slow, strong)
-- Skeletons (medium stats)
+🐛 **Monsters:**
+- **Goblins** (fast, weak) - 30 HP
+- **Orcs** (slow, strong) - 60 HP  
+- **Skeletons** (medium speed) - 40 HP
 
 📈 **Progression:**
-- Defeat monsters to earn points and experience
-- Progress through levels with increasing difficulty
-- Unlock new characters (Mage with potions, Rogue with stealth, etc.)
+- Defeat all monsters to complete the level
+- Higher levels = more monsters + harder combat
+- Earn points for each monster defeated
+- Unlock new abilities and characters
 
 ## Installation
 
@@ -33,20 +36,35 @@ python main.py
 
 ## How to Play
 
-1. **Start in Warrior Form** - Use WASD to move toward monsters
-2. **Click to Attack** - Defeat nearby monsters
-3. **Use Shadow Form** - Press E to phase through walls and dodge
-4. **Survive & Progress** - Clear all monsters to complete the level
-5. **Unlock Characters** - Earn rewards to unlock new forms with unique abilities
+1. **Use Platforms** - Jump across platforms to position yourself
+2. **Shoot Arrows** - Press SPACE to shoot monsters (Warrior form only)
+3. **Avoid Damage** - Monsters patrol platforms and deal damage on contact
+4. **Use Shadow Form** - Press E to phase through walls and escape danger
+5. **Defeat All Monsters** - Clear the level to advance
+6. **Progress Through Levels** - Get harder with more monsters
+
+## Game Mechanics
+
+### Warrior Form 🏹
+- Shoot arrows with SPACE
+- Take damage from monsters
+- Collides with platforms and walls
+- Can fall and die
+
+### Shadow Form 👻
+- Phase through walls and obstacles
+- No damage from monsters
+- Can't shoot arrows
+- Still affected by gravity and platforms
 
 ## Future Features
 
-- 🧙 **Mage Character** - Drink potions, cast spells
-- 🗡️ **Rogue Character** - Stealth and critical strikes
-- 🛡️ **Paladin Character** - Armor and shield abilities
-- 💎 **Upgrades & Loot System** - Better weapons and gear
-- 🏆 **Leaderboards** - Compete for high scores
-- 🎵 **Sound & Music** - Immersive audio
+- 🧙 **Mage Character** - Cast spells, drink potions
+- 🗡️ **Rogue Character** - Fast attacks, stealth
+- 🛡️ **Paladin Character** - Heavy armor, reflect damage
+- 💎 **Upgrades & Loot** - Better weapons and gear
+- 🎶 **Sound & Music** - Audio effects and soundtrack
+- 🏆 **Leaderboards** - High score tracking
 
 ## Author
 

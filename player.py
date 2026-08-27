@@ -5,65 +5,110 @@ class Player:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.width = 30
+        self.width = 25
         self.height = 40
+        self.vel_x = 0
+        self.vel_y = 0
         self.form = "warrior"  # warrior or shadow
         self.health = 100
         self.max_health = 100
         self.form_cooldown = 0
-        self.attack_cooldown = 0
+        self.arrow_cooldown = 0
+        self.on_ground = False
+        self.jump_power = 15
         self.level = 1
-        self.exp = 0
-        self.characters_unlocked = ["warrior"]  # Start with warrior
+        self.characters_unlocked = ["warrior"]
     
-    def move(self, dx, dy):
-        self.x += dx
-        self.y += dy
+    def move(self, dx, dy, platforms):
+        """Move with collision detection"""
+        test_x = self.x + dx
+        test_y = self.y + dy
+        
+        # Check collision with platforms
+        can_move = True
+        if self.form == "warrior":
+            test_rect = pygame.Rect(test_x - self.width // 2, test_y - self.height // 2, self.width, self.height)
+            for platform in platforms:
+                if test_rect.colliderect(platform.rect):
+                    can_move = False
+                    break
+        
+        if can_move:
+            self.x = test_x
+            self.y = test_y
+    
+    def jump(self):
+        """Jump (only when on ground)"""
+        if self.on_ground:
+            self.vel_y = -self.jump_power
+            self.on_ground = False
     
     def toggle_form(self):
         """Switch between warrior and shadow form"""
         if self.form_cooldown <= 0:
             self.form = "shadow" if self.form == "warrior" else "warrior"
-            self.form_cooldown = 30  # 0.5 seconds at 60 FPS
+            self.form_cooldown = 30
     
-    def attack(self, monsters):
-        """Attack nearby monsters in warrior form"""
-        if self.attack_cooldown <= 0 and self.form == "warrior":
-            for monster in monsters:
-                if self.distance_to(monster) < 60:  # Attack range
-                    damage = 15
-                    monster.take_damage(damage)
-                    self.attack_cooldown = 20  # Attack speed
+    def shoot_arrow(self):
+        """Shoot arrow from player position"""
+        if self.arrow_cooldown <= 0:
+            from arrow import Arrow
+            arrow = Arrow(self.x, self.y - 10, 1, 0)  # Shoot right
+            self.arrow_cooldown = 15  # Arrow fire rate
+            return arrow
+        return None
+    
+    def apply_gravity(self, gravity, platforms, screen_height):
+        """Apply gravity and handle collisions"""
+        self.vel_y += gravity
+        self.on_ground = False
+        
+        # Apply vertical velocity
+        test_y = self.y + self.vel_y
+        test_rect = pygame.Rect(self.x - self.width // 2, test_y - self.height // 2, self.width, self.height)
+        
+        # Check collision with platforms
+        for platform in platforms:
+            if test_rect.colliderect(platform.rect):
+                if self.vel_y > 0:  # Falling
+                    self.y = platform.rect.top + self.height // 2
+                    self.vel_y = 0
+                    self.on_ground = True
+                elif self.vel_y < 0:  # Jumping
+                    self.y = platform.rect.bottom - self.height // 2
+                    self.vel_y = 0
+        
+        # No collision, apply velocity
+        if not self.on_ground:
+            self.y = test_y
+        
+        # Fall off screen = death
+        if self.y > screen_height:
+            self.health = 0
     
     def take_damage(self, amount):
         self.health = max(0, self.health - amount)
     
-    def heal(self, amount):
-        self.health = min(self.max_health, self.health + amount)
-    
-    def distance_to(self, other):
-        dx = self.x - other.x
-        dy = self.y - other.y
-        return math.sqrt(dx**2 + dy**2)
-    
     def update(self):
         self.form_cooldown = max(0, self.form_cooldown - 1)
-        self.attack_cooldown = max(0, self.attack_cooldown - 1)
+        self.arrow_cooldown = max(0, self.arrow_cooldown - 1)
     
     def draw(self, screen):
         self.update()
         
         if self.form == "warrior":
             # Blue warrior
-            pygame.draw.rect(screen, (0, 100, 200), (self.x - 15, self.y - 20, self.width, self.height))
+            pygame.draw.rect(screen, (0, 150, 255), (self.x - self.width // 2, self.y - self.height // 2, self.width, self.height))
             # Head
-            pygame.draw.circle(screen, (200, 180, 150), (int(self.x), int(self.y - 25)), 8)
+            pygame.draw.circle(screen, (255, 200, 100), (int(self.x), int(self.y - 25)), 8)
+            # Bow indicator
+            pygame.draw.line(screen, (100, 50, 0), (int(self.x + 10), int(self.y - 10)), (int(self.x + 20), int(self.y - 10)), 3)
         else:
-            # Purple/dark shadow
-            pygame.draw.rect(screen, (100, 0, 150), (self.x - 15, self.y - 20, self.width, self.height))
-            pygame.draw.circle(screen, (100, 0, 150), (int(self.x), int(self.y - 25)), 8)
+            # Purple shadow - can pass through walls
+            pygame.draw.rect(screen, (150, 50, 200), (self.x - self.width // 2, self.y - self.height // 2, self.width, self.height))
+            pygame.draw.circle(screen, (150, 50, 200), (int(self.x), int(self.y - 25)), 8)
             # Shadow effect
-            pygame.draw.ellipse(screen, (50, 0, 100), (self.x - 20, self.y + 15, 40, 8))
+            pygame.draw.ellipse(screen, (100, 0, 150), (self.x - 15, self.y + 15, 30, 6))
         
         # Health bar
         bar_width = 40

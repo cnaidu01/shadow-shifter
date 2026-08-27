@@ -9,24 +9,26 @@ class Monster:
         self.monster_type = monster_type
         self.width = 25
         self.height = 30
-        self.speed = 1.5
+        self.vel_x = 0
+        self.vel_y = 0
         self.health = 30
         self.max_health = 30
         self.reward = 50
-        self.attack_cooldown = 0
+        self.on_ground = False
+        self.direction = random.choice([-1, 1])  # Left or right
         
         # Different monster types
         if monster_type == "goblin":
             self.health = 30
             self.max_health = 30
-            self.speed = 2
-            self.color = (0, 150, 0)
+            self.speed = 1.5
+            self.color = (0, 180, 0)
             self.reward = 50
         elif monster_type == "orc":
             self.health = 60
             self.max_health = 60
-            self.speed = 1.2
-            self.color = (100, 100, 0)
+            self.speed = 1.0
+            self.color = (150, 100, 0)
             self.reward = 100
         elif monster_type == "skeleton":
             self.health = 40
@@ -35,17 +37,38 @@ class Monster:
             self.color = (200, 200, 200)
             self.reward = 75
     
-    def update(self, player):
-        """Move towards player"""
-        dx = player.x - self.x
-        dy = player.y - self.y
-        distance = math.sqrt(dx**2 + dy**2)
+    def update(self, platforms, screen_height):
+        """Update monster position with gravity and platforming"""
+        # Move horizontally
+        self.x += self.speed * self.direction
         
-        if distance > 0:
-            self.x += (dx / distance) * self.speed
-            self.y += (dy / distance) * self.speed
+        # Apply gravity
+        self.vel_y += 0.6
+        self.on_ground = False
         
-        self.attack_cooldown = max(0, self.attack_cooldown - 1)
+        # Check platform collisions
+        test_rect = pygame.Rect(self.x - self.width // 2, self.y + self.vel_y - self.height // 2, self.width, self.height)
+        for platform in platforms:
+            if test_rect.colliderect(platform.rect):
+                if self.vel_y > 0:  # Falling
+                    self.y = platform.rect.top + self.height // 2
+                    self.vel_y = 0
+                    self.on_ground = True
+                    # Random jump
+                    if random.random() > 0.95:
+                        self.vel_y = -10
+        
+        # Apply vertical velocity
+        if not self.on_ground:
+            self.y += self.vel_y
+        
+        # Fall off screen
+        if self.y > screen_height:
+            self.health = 0
+        
+        # Change direction randomly or at edges
+        if random.random() > 0.98:
+            self.direction *= -1
     
     def take_damage(self, amount):
         self.health -= amount
@@ -55,8 +78,9 @@ class Monster:
         pygame.draw.rect(screen, self.color, (self.x - self.width // 2, self.y - self.height // 2, self.width, self.height))
         
         # Draw eyes
-        pygame.draw.circle(screen, (255, 0, 0), (int(self.x - 7), int(self.y - 5)), 3)
-        pygame.draw.circle(screen, (255, 0, 0), (int(self.x + 7), int(self.y - 5)), 3)
+        eye_color = (255, 0, 0) if self.monster_type != "skeleton" else (0, 0, 0)
+        pygame.draw.circle(screen, eye_color, (int(self.x - 7), int(self.y - 5)), 2)
+        pygame.draw.circle(screen, eye_color, (int(self.x + 7), int(self.y - 5)), 2)
         
         # Health bar
         bar_width = 30
